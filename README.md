@@ -5,6 +5,8 @@ Book Review Application API
 
 In this project, I followed the instructions in the course to build a server-side online book review application and integrate it with a secure REST API server which uses authentication at session level using JWT. 
 
+## Code review
+
 The file `router/booksdb.js` mocks the database backend of the library. The utility functions are:
 convertToBooksWithISBN, 
   - `fetchAllBooks`, 
