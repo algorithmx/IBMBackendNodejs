@@ -1,18 +1,34 @@
 const express = require('express');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-let books = require("./booksdb.js");
-const regd_users = express.Router();
+const { addBookReview, deleteBookReview } = require("./booksdb.js");
+const regd_users = express.Router()
 const { JWT_SECRET } = require('./secret.js');
 
-let users = [];
+let users = {};
+
+const isUserExists = (username) => {
+  return (username in users);
+}
+
+const addUser = (username, password) => {
+  users[username] = password;
+}
+
+const fetchAllUsers = () => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(users);
+    }, Math.random() * 1000);
+  });
+}
 
 const isValid = (username) => {
   return /^[a-zA-Z0-9]+$/.test(username);
 }
 
 const authenticatedUser = (username, password) => {
-  const user = users.find(u => u.username === username);
-  return user && user.password === password;
+  return (username in users) && (users[username] === password);
 }
 
 regd_users.post("/login", (req, res) => {
@@ -28,60 +44,26 @@ regd_users.post("/login", (req, res) => {
 // Add a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
   const isbn = req.params.isbn;
-  if (!(isbn in books)) {
-    return res.status(404).json({ message: "Book not found" });
-  }
-
   const userId = req.session.userId;
-  const username = req.headers.username;
-  if (!username) {
-    return res.status(601).json({ message: "User not authenticated" });
-  }
-  if (userId !== username) {
-    return res.status(602).json({ message: "User ID does not match username" });
-  }
   const { review } = req.body;
-  if (!books[isbn].reviews[username]) {
-    books[isbn].reviews[username] = review;
-    return res.status(201).json({ message: "Review added successfully" });
-  } else {
-    books[isbn].reviews[username] = review;
-    return res.status(200).json({ message: "Review updated successfully" });
-  }
+  addBookReview(isbn, userId, review)
+    .then((msg) => res.status(200).json({ message: msg }))
+    .catch((err) => res.status(404).json({ message: err.message }));
 });
 
 regd_users.delete("/auth/review/:isbn", (req, res) => {
   const isbn = req.params.isbn;
-  if (!(isbn in books)) {
-    return res.status(404).json({ message: "Book not found" });
-  }
-
-  const username = req.session.userId;
-  if (!username) {
-    return res.status(401).json({ message: "User not authenticated" });
-  }
-
-  if (books[isbn].reviews[username]) {
-    delete books[isbn].reviews[username];
-    return res.status(200).json({ message: "Review deleted successfully" });
-  } else {
-    return res.status(404).json({ message: "Review not found" });
-  }
+  const userId = req.session.userId;
+  deleteBookReview(isbn, userId)
+    .then((msg) => res.status(200).json({ message: msg }))
+    .catch((err) => res.status(404).json({ message: err.message }));
 });
 
-regd_users.post("/register", (req, res) => {
-  const { username, password } = req.body;
-  if (isValid(username)) {
-    if (users.find(user => user.username === username)) {
-      return res.status(400).json({ message: "Username already exists" });
-    }
-    users.push({ username, password });
-    return res.status(201).json({ message: "User registered successfully" });
-  } else {
-    return res.status(400).json({ message: "Invalid username" });
-  }
-});
 
-module.exports.authenticated = regd_users;
-module.exports.isValid = isValid;
-module.exports.users = users;
+module.exports = {
+  isValid,
+  addUser,
+  isUserExists,
+  fetchAllUsers,
+  authenticated : regd_users,
+};
